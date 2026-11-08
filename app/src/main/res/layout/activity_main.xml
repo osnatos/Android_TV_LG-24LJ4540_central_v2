@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:clickable="false"
+    tools:context=".MainActivity"
+    tools:ignore="ExtraText">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appbar_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/colorPrimary"
+        android:fitsSystemWindows="true"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@color/colorPrimary"
+            android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
+            app:popupTheme="@style/ThemeOverlay.AppCompat.Light" />
+
+        <!-- ДОБАВЛЯЕМ СЮДА: Информационная плашка активного стенда (Вариант 1) -->
+        <TextView
+            android:id="@+id/tv_status_strip"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#F5F5F5"
+            android:gravity="center_vertical"
+            android:paddingLeft="16dp"
+            android:paddingTop="6dp"
+            android:paddingRight="16dp"
+            android:paddingBottom="6dp"
+            android:text="● Device not defined!"
+            android:textColor="#616161"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+
+    <!-- 2. Большие часы на экране привязаны СТРОГО К НИЗУ панели -->
+    <TextClock
+        android:id="@+id/textClock"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:layout_marginEnd="183dp"
+        android:gravity="center_horizontal"
+        android:minHeight="48dp"
+        android:textColor="#8609d4"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toStartOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/appbar_layout" />
+
+    <!-- Статус BOND привязан к часам -->
+    <TextView
+        android:id="@+id/bond_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="#FFFFF000"
+        android:clickable="false"
+        android:inputType="text"
+        android:text=" BOND "
+        android:textAlignment="center"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        app:layout_constraintStart_toStartOf="@id/button_vol_plus"
+        app:layout_constraintTop_toTopOf="@+id/textClock" />
+
+    <!-- Кнопка VOL- привязана СТРОГО К НИЗУ текстового блока часов -->
+    <Button
+        android:id="@+id/button_vol_minus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="30dp"
+        android:layout_marginTop="32dp"
+        android:text="@string/button_vol_minus"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/textClock" />
+
+    <Button
+        android:id="@+id/button_vol_plus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="30dp"
+        android:text="@string/button_vol_plus"
+        app:layout_constraintStart_toEndOf="@+id/button_vol_minus"
+        app:layout_constraintTop_toTopOf="@+id/button_vol_minus" />
+
+    <Button
+        android:id="@+id/button_mute"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="25dp"
+        android:text="@string/button_mute"
+        app:layout_constraintStart_toEndOf="@+id/button_vol_plus"
+        app:layout_constraintTop_toTopOf="@+id/button_vol_plus" />
+
+    <Button
+        android:id="@+id/button_esc"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="50dp"
+        android:text="ESC"
+        app:layout_constraintStart_toStartOf="@+id/button_vol_minus"
+        app:layout_constraintTop_toBottomOf="@+id/button_vol_minus" />
+
+    <Button
+        android:id="@+id/button_select"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="SELECT"
+        app:layout_constraintStart_toStartOf="@+id/button_vol_plus"
+        app:layout_constraintTop_toTopOf="@+id/button_esc" />
+
+    <Button
+        android:id="@+id/button_ch_minus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="200dp"
+        android:text="CH -"
+        app:layout_constraintStart_toStartOf="@+id/button_vol_minus"
+        app:layout_constraintTop_toBottomOf="@+id/button_vol_minus" />
+
+    <Button
+        android:id="@+id/button_ch_plus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="CH +"
+        app:layout_constraintStart_toStartOf="@+id/button_vol_plus"
+        app:layout_constraintTop_toTopOf="@+id/button_ch_minus" />
+
+    <Button
+        android:id="@+id/button_ch_number"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="CH №"
+        app:layout_constraintStart_toStartOf="@+id/button_mute"
+        app:layout_constraintTop_toTopOf="@+id/button_ch_minus" />
+
+    <Button
+        android:id="@+id/btn_hot_on"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="ON HOT"
+        app:layout_constraintBottom_toBottomOf="@+id/button_ON"
+        app:layout_constraintStart_toStartOf="@+id/button_vol_minus" />
+
+    <Button
+        android:id="@+id/button_ON"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="65dp"
+        android:text="@string/button_on"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="@id/button_mute" />
+
+    <Button
+        android:id="@+id/btn_pause"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:minHeight="48dp"
+        android:paddingLeft="16dp"
+        android:paddingRight="16dp"
+        app:icon="@drawable/ic_pause"
+        app:iconGravity="textStart"
+        app:iconPadding="0dp"
+        app:iconSize="28dp"
+        app:layout_constraintStart_toStartOf="@+id/button_ch_minus"
+        app:layout_constraintTop_toBottomOf="@+id/button_ch_minus" />
+
+    <Button
+        android:id="@+id/btnResume"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:paddingLeft="16dp"
+        android:paddingRight="16dp"
+        app:icon="@drawable/ic_play"
+        app:iconGravity="textStart"
+        app:iconPadding="0dp"
+        app:iconSize="28dp"
+        app:layout_constraintBottom_toBottomOf="@id/btn_pause"
+        app:layout_constraintStart_toStartOf="@id/button_ch_plus"
+        app:layout_constraintTop_toTopOf="@id/btn_pause" />
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>

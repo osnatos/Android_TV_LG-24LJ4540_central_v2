@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://android.com"
+    xmlns:tools="http://github.com"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@android:color/background_dark"
+    android:gravity="center_horizontal">
+
+
+    <!-- Поле отображения номера канала -->
+    <TextView
+        android:id="@+id/tv_channel_display"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:background="#1A1A1A"
+        android:gravity="center"
+        android:textColor="@android:color/white"
+        android:textSize="32sp"
+        android:textStyle="bold"
+        android:maxLength="3"
+        android:hint="---"
+        android:textColorHint="#444444"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Цифровая сетка кнопок от 0 до 9 и Clear/Cancel -->
+    <GridLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:columnCount="3"
+        android:layout_gravity="center"
+        android:alignmentMode="alignBounds">
+
+        <Button android:id="@+id/btn_pad_1" android:text="1" android:tag="1" android:layout_margin="4dp"/>
+        <Button android:id="@+id/btn_pad_2" android:text="2" android:tag="2" android:layout_margin="4dp"/>
+        <Button android:id="@+id/btn_pad_3" android:text="3" android:tag="3" android:layout_margin="4dp"/>
+
+        <Button android:id="@+id/btn_pad_4" android:text="4" android:tag="4" android:layout_margin="4dp"/>
+        <Button android:id="@+id/btn_pad_5" android:text="5" android:tag="5" android:layout_margin="4dp"/>
+        <Button android:id="@+id/btn_pad_6" android:text="6" android:tag="6" android:layout_margin="4dp"/>
+
+        <Button android:id="@+id/btn_pad_7" android:text="7" android:tag="7" android:layout_margin="4dp"/>
+        <Button android:id="@+id/btn_pad_8" android:text="8" android:tag="8" android:layout_margin="4dp"/>
+        <Button android:id="@+id/btn_pad_9" android:text="9" android:tag="9" android:layout_margin="4dp"/>
+
+        <Button android:id="@+id/btn_pad_clear" android:text="Clear" android:textColor="#FF3B30" android:layout_margin="4dp"/>
+        <Button android:id="@+id/btn_pad_0" android:text="0" android:tag="0" android:layout_margin="4dp"/>
+        <Button android:id="@+id/btn_pad_cancel" android:text="Cancel" android:textColor="#8E8E93" android:layout_margin="4dp"/>
+    </GridLayout>
+
+    <!-- Кнопка передачи собранной последовательности чисел -->
+    <Button
+        android:id="@+id/btn_pad_send"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Send"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:backgroundTint="#34C759"
+        android:layout_marginTop="16dp"/>
+</LinearLayout>

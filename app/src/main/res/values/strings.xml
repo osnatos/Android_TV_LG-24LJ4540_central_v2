@@ -1,0 +1,23 @@
+<resources>
+    <string name="app_name">TV LG-24LJ4540</string>
+    <string name="version">Version: 1.0.0</string>
+    <string name="button_mute">MUTE</string>
+    <string name="button_on">ON TV</string>
+    <string name="button_vol_plus">VOL+</string>
+    <string name="button_vol_minus">VOL-</string>
+    <string name="about">About-</string>
+    <string name="btn_pause">&#x23F8;</string>    <!-- Символ ⏸ -->
+    <string name="btnResume">&#x25B6;</string>  <!-- Символ ▶ -->
+    <string name="select_device_title">Select Device</string>
+
+
+    <string name="appPropFileName">SET_FILE</string>
+    <string name="key_devicesChannelsMap">DEV_CH_MAP</string>
+    <string name="UUID_MY_SERVICE">"0000fff0-0000-1000-8000-00805f9b34fb"</string>
+    <string name="UUID_MY_CHARACTERISTIC">"0000fff1-0000-1000-8000-00805f9b34fb"</string>
+    <string name="UUID_STATE_CHARACTERISTIC">"0000fff2-0000-1000-8000-00805f9b34fb"</string>
+    <string name="UUID_NOTIFICATION_CHARACTERISTIC">"0000fff4-0000-1000-8000-00805f9b34fb"</string>
+    <string name="UUID_NOTIFICATION_DESCRIPTOR">"00002902-0000-1000-8000-00805f9b34fb"</string>
+
+
+</resources>
