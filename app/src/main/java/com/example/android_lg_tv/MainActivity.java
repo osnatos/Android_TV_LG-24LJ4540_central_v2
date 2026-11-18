@@ -58,7 +58,7 @@ public class MainActivity extends AppCompatActivity {
     // Таймер простоя смартфона (120 000 мс = 2 минуты)
     //  private static final long APP_IDLE_TIMEOUT_MS = 120000; // 120 000 мс = 2 минуты
     private static final long APP_IDLE_TIMEOUT_MS = 30000; // 30 000 мс = 30 sec
-
+//    private static final long APP_IDLE_TIMEOUT_MS = 180000; // 180 000 мс = 3 минуты
     private final Runnable idleRunnable = new Runnable() {
         @Override
         public void run() {
@@ -852,11 +852,17 @@ public class MainActivity extends AppCompatActivity {
             if (inputBuffer.length() > 0) { //
                 String channelToSend = inputBuffer.toString(); //
                 // Сохраняем в память чистый результат
-                prefs.edit().putString("last_successful_channel", channelToSend).apply(); //
-                // Передаем строку в метод последовательной передачи
-                // ChannelMode = true;  // Natan
+                prefs.edit().putString("last_successful_channel", channelToSend).apply();
+
+                // Гасим 15-секундный сторожевой таймер громкости
+                handler.removeCallbacks(volumeWatchdogTimerRunnable);
+
+                // Переводим воркер громкости в холодный старт, так как сокет закроется после очереди каналов
+                if (volumeWorker != null) {
+                    volumeWorker.forceColdStart();
+                }
+
                 Group_Type = ChannelDialog_Type;
-                //              manager.set_DisconnectEnable(false);  // Natan
                 // Перезапустить таймер перевода рекламы платы на 2сек
                 handler.removeCallbacks(idleRunnable);
                 handler.postDelayed(idleRunnable, APP_IDLE_TIMEOUT_MS);

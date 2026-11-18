@@ -70,7 +70,7 @@
         android:background="#FFFFF000"
         android:clickable="false"
         android:inputType="text"
-        android:text=" BOND "
+        android:text=" TV+DECODER "
         android:textAlignment="center"
         android:textAppearance="?android:attr/textAppearanceMedium"
         app:layout_constraintStart_toStartOf="@id/button_vol_plus"

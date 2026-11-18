@@ -266,22 +266,33 @@ public class BleRemoteControlManager {
         mTargetDevice.connectGatt(app, false, gattCallback, BluetoothDevice.TRANSPORT_LE);
     }
 
-    public void startBackgroundChannelQueue(String channelString) {
-        if (channelString == null || channelString.isEmpty()) return;
-        Log.d(TAG, "4 [ФОН] Запуск изолированного конвейера каналов: " + channelString);
-        mBackgroundQueueHandler.removeCallbacks(mBackgroundQueueRunnable);
-        this.mBgChannelQueue = channelString;
-        this.mBgChannelIndex = 0;
-        set_DisconnectEnable(false);
+   public void startBackgroundChannelQueue(String channelString) {
+       if (channelString == null || channelString.isEmpty()) return;
+       Log.d(TAG, "4 [ФОН] Запуск изолированного конвейера каналов: " + channelString);
+       mBackgroundQueueHandler.removeCallbacks(mBackgroundQueueRunnable);
+       this.mBgChannelQueue = channelString;
+       this.mBgChannelIndex = 0;
+       set_DisconnectEnable(false);
 
-        char firstDigit = channelString.charAt(0);
-        Byte cmdByte = MainActivity.DECODER_DIGIT_MAP.get(firstDigit);
-        final byte commandHex = (cmdByte != null) ? cmdByte : (byte) 0x22;
-        byte[] payload = new byte[]{(byte) 0xFE, commandHex};
+       char firstDigit = channelString.charAt(0);
+       Byte cmdByte = MainActivity.DECODER_DIGIT_MAP.get(firstDigit);
+       final byte commandHex = (cmdByte != null) ? cmdByte : (byte) 0x22;
+       byte[] payload = new byte[]{(byte) 0xFE, commandHex};
 
-        Log.d(TAG, "[ФОН-СТАРТ] Выбрасываем цифру 1: " + firstDigit);
-        this.sendSingleShotCommand(payload);
-    }
+       // ОБЯЗАТЕЛЬНО: обновляем тип транзакции и буфер 1-й цифры до ветвления!
+       this.currentTransactionType = 1;
+       this.pendingMutePayload = payload;
+
+       BluetoothGatt gatt = BleReadOnlyStorage.getCurrentGatt();
+       if (gatt != null && isGattConnected) {
+           Log.d(TAG, "[ФОН-ГОРЯЧИЙ СТАРТ] Канал открыт. Запускаем полную серию цифр: " + channelString);
+           gatt.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH);
+           sendChannelNumber(gatt);
+       } else {
+           Log.d(TAG, "[ФОН-СТАРТ] Выбрасываем цифру 1: " + firstDigit);
+           this.sendSingleShotCommand(payload);
+       }
+   }
 
     private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
         @Override
