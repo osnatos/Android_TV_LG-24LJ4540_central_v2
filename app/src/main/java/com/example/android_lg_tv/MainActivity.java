@@ -630,10 +630,25 @@ public class MainActivity extends AppCompatActivity {
                     }
                     break;
 
-                case MotionEvent.ACTION_CANCEL: // <<< СИСТЕМНЫЙ СБРОС (Капкан Android)
+/*                case MotionEvent.ACTION_CANCEL: // <<< СИСТЕМНЫЙ СБРОС (Капкан Android)
                     Log.w(TAG, "[ТАЧ] ВНИМАНИЕ! Android попытался принудительно прервать удержание через ACTION_CANCEL!");
                     //    return true;
-                    break;
+*/
+                 case MotionEvent.ACTION_CANCEL:
+                     Log.w(TAG, "[ТАЧ] ACTION_CANCEL: обработка как освобождение кнопки громкости.");
+                     RestartIdleTimer();
+                     restartDisconnectionTimer(volumeWatchdogTimerRunnable);
+                     if (VolumeLock == 1) {
+                        isVolumeButtonPressed = false;
+                        v.setPressed(false);
+                        VolumeLock = 3;
+                     } else if (VolumeLock == 2) {
+                       writeButtonUp(v, cmdCode);
+                       VolumeLock = 0;
+                     } else if (VolumeLock == 3) {
+                       Log.d(TAG, "[ACTION_CANCEL] Освобождение уже ожидается от отложенного обработчика.");
+                     }
+                     break;
             }
             return true;
         }
