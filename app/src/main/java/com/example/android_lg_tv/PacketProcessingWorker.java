@@ -53,8 +53,7 @@ public void run() {
             if (isFirstPair) {
                 if (isStartPacket) {
                     Log.w(TAG, " [ВОРКЕР ЯДРО] Обнаружен Холодный старт кнопки: " + rawEvent.cmdCode);
-                    //
-                    isFirstPair = true; // Сбрасываем триггер конвейера на первую пару
+                    // Сохраняем isFirstPair=true до расчёта времени первого M=100.
 
                     // Напрямую пинаем менеджер на запуск нативного Direct Connect с нуля
                     manager.initiateConnection(BleReadOnlyStorage.getCurrentGatt());
@@ -76,8 +75,7 @@ public void run() {
                 }
 
                 Log.d(TAG, " [ВОРКЕР ЯДРО] Прогрев завершен! Канал полностью зафиксирован и стабилизирован.");
-                // Снимаем флаг холодного старта, переводя канал в горячий режим
-                isFirstPair = false;
+                // isFirstPair остаётся true до расчёта времени первого M=100 в планировщике.
 
             } else if (BoardSleepMode) {
                 if(isStartPacket) {
@@ -172,33 +170,17 @@ public void run() {
             Log.d(TAG, String.format(" [ПЛАНИРОВЩИК] Старт M=100. Целевое время: %d. Динамический сдвиг: %d мс", targetTimeMs, dynamicShift));
 
         } else if (event.type == ButtonEventQueue.TYPE_RELEASE) { // ACTION_UP
-          if(BoardSleepMode) { // Плата после выхода из 2сек рекламы
-             Log.d(TAG , "TimeScheduler,ACTION_UP, BoardSleepMode");
+            // ACTION_UP сохраняет собственное время события. Не прибавляем к нему
+            // dynamicShift: это смещение подключения, а не задержка отпускания пальца.
+            // STOP допускается не раньше чем через 400 мс после запланированного M=100.
+            long earliestStopTimeMs = lastGattExecuteTime + HoldingWindowTime;
+            targetTimeMs = Math.max(event.timeMs, earliestStopTimeMs);
 
-              if(event.timeMs >= lastGattExecuteTime) {
-                  if((realConnectTime - lastGattExecuteTime) >  HoldingWindowTime) {
-                      targetTimeMs = realConnectTime + 1; // Клик был длинным, задержка не нужна
-                  } else {
-                      targetTimeMs = lastGattExecuteTime + HoldingWindowTime; // Принудительно удерживаем 400 мс для платы
-                  }
-              } else { // event.timeMs < realConnectTime
-                  targetTimeMs = lastGattExecuteTime + HoldingWindowTime; // Принудительно удерживаем 400 мс для платы
-              }
-              BoardSleepMode = false; //
-          }
-          else {
-              // Применяем актуальное динамическое смещение конвейера к моменту отрыва пальца
-              long shiftedTimeUp = event.timeMs + dynamicShift;
-              //    long shiftedTimeUp = event.timeMs; // + dynamicShift;  // Natan
-              // Защита от пинания в канале: пакет Стопа не должен вылетать раньше 400 мс окна удержания
-              // ИСПРАВЛЕНИЕ: Обе переменные теперь на одной шкале elapsedRealtime!
-              if (shiftedTimeUp - lastGattExecuteTime < HoldingWindowTime) {
-                  targetTimeMs = lastGattExecuteTime + HoldingWindowTime; // Принудительно удерживаем 400 мс для платы
-              } else {
-                  //   targetTimeMs = shiftedTimeUp; // Клик был длинным, задержка не нужна
-                  targetTimeMs = event.timeMs; // Клик был длинным, задержка не нужна
-              }
-          }
+            if (BoardSleepMode) { // Плата после выхода из 2-секундной рекламы
+                Log.d(TAG, "TimeScheduler,ACTION_UP, BoardSleepMode; STOP=" + targetTimeMs);
+                BoardSleepMode = false;
+            }
+
             marker = 0; // Маркер конца (M=0)
             lastGattExecuteTime = targetTimeMs; // Запоминаем время выстрела Стопа
 

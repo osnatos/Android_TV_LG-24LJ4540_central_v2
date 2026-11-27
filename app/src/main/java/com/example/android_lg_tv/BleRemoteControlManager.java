@@ -23,11 +23,11 @@ public class BleRemoteControlManager {
 
     // Флаг фиксирует, что плата находится в режиме 2-секундной рекламы после простоя
     // Взводит idleRunnable таймер. Сбрасывает STATE_CONNECTED
-    public boolean isBoardSleeping = false;
+    public volatile boolean isBoardSleeping = false;
 
     //   public byte[] pendingMutePayload = new byte[2];
-    private boolean WakeUpCommand = false;
-    public boolean runAdvertisingDiagnosticFlag = false;
+    private volatile boolean WakeUpCommand = false;
+    public volatile boolean runAdvertisingDiagnosticFlag = false;
 
     // Разрешение автоматического запуска BLE-рекламной диагностики; ручной запуск не затрагивается.
     public static volatile boolean AUTO_ADVERTISING_DIAGNOSTIC_ENABLED = false;
@@ -59,7 +59,7 @@ public class BleRemoteControlManager {
     private volatile boolean isGattConnected = false;
     public byte[] pendingMutePayload = null;
     private byte[] pendingVolumePayload = null;
-    private int currentTransactionType = 0; // 1 = MUTE, 2 = ГРОМКОСТЬ
+    private volatile int currentTransactionType = 0; // 1 = MUTE, 2 = ГРОМКОСТЬ
 
     public interface BleUiCallback {
         void onOperationComplete();
@@ -386,7 +386,9 @@ public class BleRemoteControlManager {
                     }
                 }
                 else if(BoardSleepMode) {
-                    BoardSleepMode = false;
+                    // BoardSleepMode описывает незавершённую последовательность пробуждения.
+                    // Не сбрасываем его при DISCONNECTED: сброс выполняется планировщиком
+                    // после обработки TYPE_RELEASE.
                     if (AUTO_ADVERTISING_DIAGNOSTIC_ENABLED) {
                         notifyUionRunAdvertisingDiagnostic();
                     }
@@ -618,10 +620,11 @@ public class BleRemoteControlManager {
 
     public void ResumeAfterTimeout() {
         Log.d(TAG, "ResumeAfterTimeout (Холодный старт): [Connection]");
-        startConnectTime = android.os.SystemClock.elapsedRealtime();
-        mTargetDevice.connectGatt(app, false, gattCallback, BluetoothDevice.TRANSPORT_LE);
+        // Публикуем состояние до запуска асинхронного connectGatt и его callback.
         WakeUpCommand = true;
         runAdvertisingDiagnosticFlag = true;
+        startConnectTime = android.os.SystemClock.elapsedRealtime();
+        mTargetDevice.connectGatt(app, false, gattCallback, BluetoothDevice.TRANSPORT_LE);
     }
 
     public boolean send_WakeUpCommand(BluetoothGatt gatt) {

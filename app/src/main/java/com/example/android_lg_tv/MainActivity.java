@@ -235,16 +235,22 @@ public class MainActivity extends AppCompatActivity {
             }
             @Override
             public void onCriticalError() {
-                handler.removeCallbacks(volumeWatchdogTimerRunnable); //
-                // АВАРИЙНЫЙ ЩИТ ГРОМКОСТИ: Снимаем замки и возвращаем яркость кнопкам пульта при любой аварии
-                isBleBusy = false; //
-                isVolumeButtonPressed = false;
-                //MarkerStart = false;
-                setAllButtonsEnabled(true); //
+                // Ошибка передачи не означает, что пользователь физически отпустил кнопку.
+                // Сохраняем состояние удержания до ACTION_UP / ACTION_CANCEL.
+                isBleBusy = false;
+                if (isVolumeButtonPressed) {
+                    // Восстанавливаем страховочный таймер: на спящем пути он мог быть снят
+                    // перед ожиданием пробуждения платы.
+                    restartDisconnectionTimer(volumeWatchdogTimerRunnable);
+                    Log.w(TAG, "BLE ошибка при удержании громкости: ожидаем ACTION_UP/ACTION_CANCEL или watchdog.");
+                } else {
+                    handler.removeCallbacks(volumeWatchdogTimerRunnable);
+                    setAllButtonsEnabled(true);
+                }
 
                 pendingChannelQueue = ""; //
                 BleRemoteControlManager.getInstance().set_DisconnectEnable(true); //
-                Log.e(TAG, "Критическая ошибка BLE во время работы очереди. Интерфейс принудительно очищен."); //
+                Log.e(TAG, "Критическая ошибка BLE во время работы очереди."); //
             }
             @Override
             public void onToast(String Message) {
@@ -528,6 +534,9 @@ public class MainActivity extends AppCompatActivity {
                 handler.removeCallbacks(volumeWatchdogTimerRunnable);
 
                 if (BleRemoteControlManager.getInstance().isBoardSleeping) {
+                    // Одноразовая команда должна иметь тип транзакции 1, а не наследовать тип громкости.
+                    manager.setcurrentTransactionType(1);
+                    BoardSleepMode = true;
                     manager.pendingMutePayload = singleShotData;
                     BleRemoteControlManager.getInstance().ResumeAfterTimeout();
                  } else {
@@ -584,6 +593,8 @@ public class MainActivity extends AppCompatActivity {
                     isVolumeButtonPressed = true;
 
                     if(manager.isBoardSleeping) {
+                         // Синхронизируем флаг сценария сна с подтверждённым состоянием менеджера.
+                         BoardSleepMode = true;
                          manager.setcurrentTransactionType(2);
                          manager.pendingMutePayload = null;
                          volumeWorker.setColdStartFlag(false);
