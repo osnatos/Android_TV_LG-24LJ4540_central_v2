@@ -262,21 +262,21 @@ public class MainActivity extends AppCompatActivity {
                                     getColor(MainActivity.this, R.color.holo_orange_light));
                           isBleBusy = false;
                           setAllButtonsEnabled(true);
-                          manager.FastAdvMode = false;
+         //                 manager.FastAdvMode = false;   // Natan 26-11-2026
                       }
                       else if(ConnectionTimeMsec <= 1000) {
                       //    bond_status.setText("Статус: Активен (100мс)");
                           bond_status.setText("Cоединен. ( "  + ConnectionTimeMsec + " мс )");
                           bond_status.setBackgroundColor(ContextCompat.
                                   getColor(MainActivity.this, R.color.blue_light_color));
-                          manager.FastAdvMode = true;
+            //              manager.FastAdvMode = true;   // Natan 26-11-2026
 
                       } else {
                     //      bond_status.setText("Статус: Сон (2 сек)");
                           bond_status.setText("Cоединен. ( "  + ConnectionTimeMsec + " мс )");
                           bond_status.setBackgroundColor(ContextCompat.
                                   getColor(MainActivity.this, R.color.colorDeepPurple));
-                          manager.FastAdvMode = false;
+        //                  manager.FastAdvMode = false;   // Natan 26-11-2026
 
                       }
                     }
@@ -284,11 +284,15 @@ public class MainActivity extends AppCompatActivity {
             }
             @Override
             public void onRunAdvertisingDiagnostic() {
-               String currentMac = BleRemoteControlManager.getInstance().getCurrentDeviceName(); //
-                if (currentMac != null && !currentMac.isEmpty()) {
-                    runManualAdvertisingDiagnostic(currentMac); //
+                // Дополнительная защита UI: автоматическая диагностика отключена.
+                if (!BleRemoteControlManager.AUTO_ADVERTISING_DIAGNOSTIC_ENABLED) {
+                    Log.d("AdvertisingDiagnostic", "Автоматический запуск заблокирован настройкой");
+                    return;
                 }
-
+                String currentMac = BleRemoteControlManager.getInstance().getCurrentDeviceName();
+                if (currentMac != null && !currentMac.isEmpty()) {
+                    runManualAdvertisingDiagnostic(currentMac);
+                }
             }
             @Override
             public void onDisconnect() {
@@ -297,17 +301,10 @@ public class MainActivity extends AppCompatActivity {
                     bond_status.setBackgroundColor(ContextCompat.
                             getColor(MainActivity.this, R.color.holo_orange_light));
 
-                    handler.postDelayed(() -> {
-                        if (manager.FastAdvMode) {
-                            bond_status.setText("Статус: Активен (100мс)");
-                            bond_status.setBackgroundColor(ContextCompat.
-                                    getColor(MainActivity.this, R.color.blue_light_color));
-                        } else {
-                            bond_status.setText("Статус: Сон (2 сек)");
-                            bond_status.setBackgroundColor(ContextCompat.
-                                    getColor(MainActivity.this, R.color.colorDeepPurple));
-                        }
-                    }, 500);
+                //    bond_status.setText("Статус: Отключен; режим рекламы не проверен");
+                    bond_status.setText("Связь отключена");
+                    bond_status.setBackgroundColor(ContextCompat.
+                            getColor(MainActivity.this, R.color.holo_orange_light));
                 }
             }
 
@@ -783,9 +780,9 @@ public class MainActivity extends AppCompatActivity {
         manager.set_DisconnectEnable(true);
         if (serviceCommandHex == SERV_CMD_WAKE) {
             manager.set_Connected(false);
-            manager.FastAdvMode = (true);
+      //      manager.FastAdvMode = (true);   // Natan 26-11-2026
         } else { // serviceCommandHex = SERV_CMD_SLEEP
-            manager.FastAdvMode = (false);
+    //        manager.FastAdvMode = (false);   // Natan 26-11-2026
         }
 
         isBleBusy = true;
@@ -943,9 +940,12 @@ public class MainActivity extends AppCompatActivity {
             // 3. Активируем дисконнект на BLE-менеджере
             if (manager != null) {
                 manager.DisconnectAndClose();
-                bond_status.setText("Статус: Активен (100мс)");
-                bond_status.setBackgroundColor(ContextCompat.
-                                     getColor(MainActivity.this, R.color.blue_light_color));
+                if (bond_status != null) {
+                //    bond_status.setText("Статус: Отключение; реклама не проверена");
+                    bond_status.setText("Таймер отключил связь");
+                    bond_status.setBackgroundColor(ContextCompat.
+                            getColor(MainActivity.this, R.color.holo_orange_light));
+                }
             }
         }
 
@@ -1045,82 +1045,108 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 public void runManualAdvertisingDiagnostic(String macAddress) {
-    //   MainActivity.isBleBusy = false; // ???? Возвращаем свободу интерфейсу пульта
+    BleRemoteControlManager currentManager = BleRemoteControlManager.getInstance();
+    if (currentManager.isGattConnected()) {
+        Toast.makeText(this, "Сначала отключите BLE-соединение, затем запустите диагностику рекламы", Toast.LENGTH_LONG).show();
+        Log.d("AdvertisingDiagnostic", "Ручное сканирование отклонено: GATT-соединение активно");
+        return;
+    }
     if (isBleBusy) {
-        android.widget.Toast.makeText(this, "BLE транспорт занят, подождите...", android.widget.Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "BLE транспорт занят, подождите...", Toast.LENGTH_SHORT).show();
         Log.d("AdvertisingDiagnostic", "BLE транспорт занят");
+        return;
+    }
+    if (macAddress == null || macAddress.trim().isEmpty()) {
+        Toast.makeText(this, "Не задан MAC-адрес выбранной платы", Toast.LENGTH_LONG).show();
+        Log.e("AdvertisingDiagnostic", "Ручная диагностика отменена: пустой MAC");
         return;
     }
 
     isBleBusy = true;
     setAllButtonsEnabled(false);
     if (bond_status != null) {
-       bond_status.setText("Диагностика эфира...");
-       bond_status.setBackgroundColor(ContextCompat.
-                                         getColor(MainActivity.this, R.color.orange_color));
+        bond_status.setText("Диагностика рекламы...");
+        bond_status.setBackgroundColor(ContextCompat.getColor(this, R.color.orange_color));
     }
 
-    //    android.widget.Toast.makeText(this, "Запуск экспресс-теста эфира (7 сек)...",
-    //                                                     android.widget.Toast.LENGTH_SHORT).show();
-    // Получаем текущий MAC-адрес платы из синглтона BLE-менеджера
-    String currentMac = BleRemoteControlManager.getInstance().getCurrentDeviceName();
-    // Просто создаем класс детектора и запускаем его контракт
-    BleIntervalDetector detector = new BleIntervalDetector();
-    detector.setMacAddress(currentMac);
-    detector.startDetection(new BleIntervalDetector.DetectionListener() {
-        // detector.startDetection(macAddress,BleIntervalDetector.DetectionListener)   {
+    bleIntervalDetector = new BleIntervalDetector();
+    bleIntervalDetector.setMacAddress(macAddress);
+    bleIntervalDetector.startDetection(new BleIntervalDetector.DetectionListener() {
+        private void finishUi() {
+            isBleBusy = false;
+            setAllButtonsEnabled(true);
+            bleIntervalDetector = null;
+        }
+
         @Override
         public void onFastAdvertisingDetected() {
             runOnUiThread(() -> {
-    //            android.widget.Toast.makeText(MainActivity.this,
-    //                    "Плата АКТИВНА (Быстрый режим: ~100мс)", android.widget.Toast.LENGTH_LONG).show();
                 if (bond_status != null) {
-                    bond_status.setText("Статус: Активен (100мс)");
-                    bond_status.setBackgroundColor(ContextCompat.
-                            getColor(MainActivity.this, R.color.blue_light_color));
+                    //         bond_status.setText("Статус: Реклама обнаружена (~100мс)");
+                    bond_status.setText("Статус: Реклама ~100мс");
+                    bond_status.setBackgroundColor(ContextCompat.getColor(MainActivity.this, R.color.blue_light_color));
                 }
-                BleRemoteControlManager.getInstance().FastAdvMode = true;
-                BleRemoteControlManager.getInstance().isBoardSleeping = false;
+     //           currentManager.FastAdvMode = true;        // Natan 26-11-2026
+                currentManager.isBoardSleeping = false;
                 BoardSleepMode = false;
-                isBleBusy = false;
-                setAllButtonsEnabled(true);
+                finishUi();
             });
         }
 
         @Override
         public void onSlowAdvertisingDetected() {
             runOnUiThread(() -> {
-    //            android.widget.Toast.makeText(
-    //                    MainActivity.this, "Плата в режиме СНА (Энергосбережение: ~2сек)",
-    //                    android.widget.Toast.LENGTH_LONG).show();
                 if (bond_status != null) {
-                    bond_status.setText("Статус: Сон (2 сек)");
-                    bond_status.setBackgroundColor(ContextCompat.
-                            getColor(MainActivity.this, R.color.colorDeepPurple));
+                //    bond_status.setText("Статус: Реклама обнаружена (медленный режим)");
+                    bond_status.setText("Статус: Реклама ~2сек");
+
+                    bond_status.setBackgroundColor(ContextCompat.getColor(MainActivity.this, R.color.colorDeepPurple));
                 }
-                BleRemoteControlManager.getInstance().FastAdvMode = false;
-                BleRemoteControlManager.getInstance().isBoardSleeping = true;
+    //            currentManager.FastAdvMode = false;    // Natan 26-11-2026
+                currentManager.isBoardSleeping = true;
                 BoardSleepMode = true;
-                isBleBusy = false;
-                setAllButtonsEnabled(true);
+                finishUi();
+            });
+        }
+
+        @Override
+        public void onUnknownAdvertisingDetected() {
+            runOnUiThread(() -> {
+                if (bond_status != null) {
+                    bond_status.setText("Статус: Реклама ?");
+                    bond_status.setBackgroundColor(ContextCompat.getColor(MainActivity.this, R.color.holo_orange_light));
+                }
+                // Интервал не подтверждён: состояние сна/пробуждения не меняем.
+                finishUi();
             });
         }
 
         @Override
         public void onDeviceNotFound() {
             runOnUiThread(() -> {
-//                android.widget.Toast.makeText(
-//                        MainActivity.this, "Устройство НЕ НАЙДЕНО в эфире!",
-//                        android.widget.Toast.LENGTH_LONG).show();
                 if (bond_status != null) {
-                    bond_status.setText("Статус: Вне зоны / Выключен");
-                    bond_status.setBackgroundColor(ContextCompat.
-                            getColor(MainActivity.this, R.color.holo_orange_light));
+                    //     bond_status.setText("Реклама выбранной платы не обнаружена за 7 секунд");
+                    bond_status.setText("Реклама не обнаружена");
+
+                    bond_status.setBackgroundColor(ContextCompat.getColor(MainActivity.this, R.color.holo_orange_light));
                 }
-                isBleBusy = false;
-                setAllButtonsEnabled(true);
+                finishUi();
+            });
+        }
+
+        @Override
+        public void onScanError(int errorCode, String description) {
+            runOnUiThread(() -> {
+                if (bond_status != null) {
+                    bond_status.setText("Ошибка сканирования: " + description);
+                    bond_status.setBackgroundColor(ContextCompat.getColor(MainActivity.this, R.color.holo_orange_light));
+                }
+                Toast.makeText(MainActivity.this, description, Toast.LENGTH_LONG).show();
+                Log.e("AdvertisingDiagnostic", "Scan failed, code=" + errorCode + ": " + description);
+                finishUi();
             });
         }
     });
 }
+
 } // <-- САМАЯ ПОСЛЕДНЯЯ ФИГУРНАЯ СКОБКА, КОТОРАЯ ЗАКРЫВАЕТ КЛАСС MainActivity!

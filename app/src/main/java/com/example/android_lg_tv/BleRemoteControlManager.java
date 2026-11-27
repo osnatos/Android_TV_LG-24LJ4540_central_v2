@@ -19,7 +19,7 @@ import android.util.Log;
 @SuppressLint("MissingPermission")
 public class BleRemoteControlManager {
     private static volatile long startConnectTime = -1;
-    public boolean FastAdvMode = false; // Флаг фиксирует, что плата находится в режиме 100мс рекламы
+    //    public boolean FastAdvMode = false; // Флаг фиксирует, что плата находится в режиме 100мс рекламы
 
     // Флаг фиксирует, что плата находится в режиме 2-секундной рекламы после простоя
     // Взводит idleRunnable таймер. Сбрасывает STATE_CONNECTED
@@ -28,6 +28,9 @@ public class BleRemoteControlManager {
     //   public byte[] pendingMutePayload = new byte[2];
     private boolean WakeUpCommand = false;
     public boolean runAdvertisingDiagnosticFlag = false;
+
+    // Разрешение автоматического запуска BLE-рекламной диагностики; ручной запуск не затрагивается.
+    public static volatile boolean AUTO_ADVERTISING_DIAGNOSTIC_ENABLED = false;
 
     private PacketProcessingWorker volumeWorker;
 
@@ -84,6 +87,11 @@ public class BleRemoteControlManager {
 
     public void setUiCallback(BleUiCallback c) {
         this.uiCallback = c;
+    }
+
+    /** Returns the current GATT connection state for diagnostic gating. */
+    public boolean isGattConnected() {
+        return isGattConnected;
     }
 
     public void setTargetMacAddress(String macAddress) {
@@ -373,11 +381,15 @@ public class BleRemoteControlManager {
 
                 if(runAdvertisingDiagnosticFlag) {
                     runAdvertisingDiagnosticFlag = false;
-                    notifyUionRunAdvertisingDiagnostic();
+                    if (AUTO_ADVERTISING_DIAGNOSTIC_ENABLED) {
+                        notifyUionRunAdvertisingDiagnostic();
+                    }
                 }
                 else if(BoardSleepMode) {
                     BoardSleepMode = false;
-                    notifyUionRunAdvertisingDiagnostic();
+                    if (AUTO_ADVERTISING_DIAGNOSTIC_ENABLED) {
+                        notifyUionRunAdvertisingDiagnostic();
+                    }
                 }
 /*
                 if(currentTransactionType == 1) {
@@ -478,9 +490,12 @@ public class BleRemoteControlManager {
         }
     }
     private void notifyUionRunAdvertisingDiagnostic() {
-        if (uiCallback != null) {
-            mainHandler.post(() -> uiCallback.onRunAdvertisingDiagnostic());
+        // Центральная защита: при выключенной автоматической диагностике
+        // не передаём событие в UI и не запускаем сканирование.
+        if (!AUTO_ADVERTISING_DIAGNOSTIC_ENABLED || uiCallback == null) {
+            return;
         }
+        mainHandler.post(() -> uiCallback.onRunAdvertisingDiagnostic());
     }
     private void notifyUionDisconnect() {
         if (uiCallback != null) {

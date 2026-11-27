@@ -1,144 +1,164 @@
 package com.example.android_lg_tv;
 
-//import android.annotation.SuppressLint;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
+import android.bluetooth.le.ScanSettings;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.util.Log;
 
+/** Measures advertising intervals for one explicitly selected board MAC. */
 public class BleIntervalDetector {
     private static final String TAG = "BleIntervalDetector";
-    private String TARGET_MAC = null;
-    private static final long SCAN_TIMEOUT_MS = 7000; // 7 секунд на проверку
+    private static final long SCAN_TIMEOUT_MS = 7000;
 
-    private long lastPacketTimestamp = 0;
-    private int totalPacketsReceived = 0;
-    private boolean isFastAdvertisingDetected = false;
+    private String targetMac;
+    private long lastPacketTimestamp;
+    private int totalPacketsReceived;
+    private boolean isFastAdvertisingDetected;
+    private boolean finished;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Runnable timeoutRunnable;
+    private BluetoothLeScanner activeScanner;
+    private DetectionListener listener;
 
     public interface DetectionListener {
         void onFastAdvertisingDetected();
         void onSlowAdvertisingDetected();
+        void onUnknownAdvertisingDetected();
         void onDeviceNotFound();
+        void onScanError(int errorCode, String description);
     }
 
-    private DetectionListener listener;
-
-public void startDetection(DetectionListener listener) {
- //   TARGET_MAC = mac_address;
-    if (timeoutRunnable != null) {
-        handler.removeCallbacks(timeoutRunnable);
+    public void setMacAddress(String macAddress) {
+        targetMac = macAddress;
     }
 
-    this.listener = listener;
-    this.lastPacketTimestamp = 0;
-    this.totalPacketsReceived = 0;
-    this.isFastAdvertisingDetected = false;
+    public void startDetection(DetectionListener detectionListener) {
+        stopScanningInternal();
+        listener = detectionListener;
+        lastPacketTimestamp = 0;
+        totalPacketsReceived = 0;
+        isFastAdvertisingDetected = false;
+        finished = false;
 
-    // -------------------------------------------------------------------------
-    // АВТОНОМНЫЙ ЕДИНСТВЕННЫЙ СТАРТ СИСТЕМНОГО ЧИПА BLUETOOTH
-    // -------------------------------------------------------------------------
-    android.bluetooth.BluetoothAdapter adapter = android.bluetooth.BluetoothAdapter.getDefaultAdapter();
-    android.bluetooth.le.BluetoothLeScanner scanner = (adapter != null) ? adapter.getBluetoothLeScanner() : null;
+        if (targetMac == null || targetMac.trim().isEmpty()) {
+            finishWithError(-1, "Не задан MAC-адрес платы");
+            return;
+        }
 
-    if (scanner != null) {
+        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+        if (adapter == null) {
+            finishWithError(-2, "Bluetooth-адаптер недоступен");
+            return;
+        }
         try {
-            android.bluetooth.le.ScanSettings settings = new android.bluetooth.le.ScanSettings.Builder()
-                    .setScanMode(android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_LATENCY)
+            if (!adapter.isEnabled()) {
+                finishWithError(-3, "Bluetooth выключен");
+                return;
+            }
+            activeScanner = adapter.getBluetoothLeScanner();
+            if (activeScanner == null) {
+                finishWithError(-4, "BLE-сканер недоступен");
+                return;
+            }
+            ScanSettings settings = new ScanSettings.Builder()
+                    .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
                     .build();
-
-            // Передаем null вместо фильтров чипа, привязывая наш scanCallback
-            scanner.startScan(null, settings, scanCallback);
-            Log.d(TAG, ">>> Автономный старт: Аппаратный чип запущен без фильтров. Слушаем эфир. <<<");
+            activeScanner.startScan(null, settings, scanCallback);
+            Log.d(TAG, "Сканирование запущено для MAC " + targetMac);
         } catch (SecurityException e) {
-            Log.e(TAG, "Ошибка прав доступа при старте сканирования", e);
+            finishWithError(-5, "Нет разрешения на BLE-сканирование: " + e.getMessage());
+            return;
+        } catch (RuntimeException e) {
+            finishWithError(-6, "Не удалось запустить BLE-сканирование: " + e.getMessage());
+            return;
         }
+
+        timeoutRunnable = () -> {
+            if (finished) return;
+            stopScanningInternal();
+            finished = true;
+            DetectionListener callback = listener;
+            if (callback == null) return;
+            if (isFastAdvertisingDetected) {
+                callback.onFastAdvertisingDetected();
+            } else if (totalPacketsReceived > 0) {
+                // Наличие пакетов само по себе не доказывает интервал 2 секунды.
+                // Медленный режим подтверждается только измеренным интервалом 1800–2200/3800–4200 мс.
+                Log.i(TAG, "Реклама обнаружена, но интервал не удалось классифицировать; пакетов: " + totalPacketsReceived);
+                callback.onUnknownAdvertisingDetected();
+            } else {
+                Log.i(TAG, "За время сканирования рекламные пакеты выбранного MAC не обнаружены");
+                callback.onDeviceNotFound();
+            }
+        };
+        handler.postDelayed(timeoutRunnable, SCAN_TIMEOUT_MS);
     }
-    // -------------------------------------------------------------------------
 
-    // 7-секундный таймер
-    timeoutRunnable = () -> {
-        stopScanningInternal(); // Выключит сканер на аппаратном уровне!
-
-        if (isFastAdvertisingDetected) {
-            if (listener != null) listener.onFastAdvertisingDetected();
-        } else if (totalPacketsReceived > 0) {
-            Log.i(TAG, ">>> ВЕРДИКТ: Реклама МЕДЛЕННАЯ (пакетов: " + totalPacketsReceived + ") <<<");
-            if (listener != null) listener.onSlowAdvertisingDetected();
-        } else {
-            Log.i(TAG, ">>> ВЕРДИКТ: РЕКЛАМЫ НЕТ ВООБЩЕ <<<");
-            if (listener != null) listener.onDeviceNotFound();
-        }
-    };
-    handler.postDelayed(timeoutRunnable, SCAN_TIMEOUT_MS);
-}
+    private void finishWithError(int errorCode, String description) {
+        if (finished) return;
+        finished = true;
+        stopScanningInternal();
+        Log.e(TAG, description + " (code=" + errorCode + ")");
+        DetectionListener callback = listener;
+        if (callback != null) callback.onScanError(errorCode, description);
+    }
 
     private void stopScanningInternal() {
-        handler.removeCallbacks(timeoutRunnable);
-
-        // -------------------------------------------------------------------------
-        // ГАРАНТИРОВАННОЕ АППАРАТНОЕ УНИЧТОЖЕНИЕ СКАНЕРА ПРИ ОСТАНОВКЕ
-        // -------------------------------------------------------------------------
-        try {
-            android.bluetooth.BluetoothAdapter adapter = android.bluetooth.BluetoothAdapter.getDefaultAdapter();
-            if (adapter != null && adapter.getBluetoothLeScanner() != null) {
-                adapter.getBluetoothLeScanner().stopScan(scanCallback);
-                Log.d(TAG, ">>> Чистый стоп: Аппаратный callback сканера удален из системы. <<<");
+        if (timeoutRunnable != null) {
+            handler.removeCallbacks(timeoutRunnable);
+            timeoutRunnable = null;
+        }
+        BluetoothLeScanner scanner = activeScanner;
+        activeScanner = null;
+        if (scanner != null) {
+            try {
+                scanner.stopScan(scanCallback);
+            } catch (SecurityException | IllegalStateException e) {
+                Log.w(TAG, "Не удалось штатно остановить BLE-сканирование", e);
             }
-        } catch (SecurityException ignored) {}
-        // -------------------------------------------------------------------------
+        }
     }
 
     private final ScanCallback scanCallback = new ScanCallback() {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
-            super.onScanResult(callbackType, result);
+            if (finished || result == null || result.getDevice() == null) return;
+            String address = result.getDevice().getAddress();
+            if (address == null || !targetMac.equalsIgnoreCase(address)) return;
 
-            if (TARGET_MAC.equalsIgnoreCase(result.getDevice().getAddress())) {
-                long currentTimestamp = SystemClock.elapsedRealtime();
-                totalPacketsReceived++;
-
-                if (lastPacketTimestamp != 0) {
-                    long delta = currentTimestamp - lastPacketTimestamp;
-                    Log.d(TAG, "Пакет | Дельта: " + delta + " мс");
-
-                    // Проверяем на 100мс + дельта (джиттер)
-                    if (delta >= 70 && delta <= 150) {
-                        isFastAdvertisingDetected = true;
-                        handler.removeCallbacks(timeoutRunnable); // Отменяем таймаут
-                        stopScanningInternal(); // Останавливаем сканер, цель достигнута
-
-                        Log.i(TAG, ">>> ВЕРДИКТ: БЫСТРАЯ РЕКЛАМА (100 мс) <<<");
-                        if (listener != null) listener.onFastAdvertisingDetected();
-                        return;
-                    }
-                    // Защита от джиттера для медленной 2-секундной рекламы.
-                    // Если дельта близка к 2 секундам (сон) или к 4 секундам (сон с одним пропущенным пакетом),
-                    // мы гарантированно фиксируем, что плата находится в режиме сна, не дожидаясь конца 7 секунд!
-                    if ((delta >= 1800 && delta <= 2200) || (delta >= 3800 && delta <= 4200)) {
-                        handler.removeCallbacks(timeoutRunnable);
-                        stopScanningInternal();
-
-                        Log.i(TAG, ">>> ВЕРДИКТ: МЕДЛЕННАЯ РЕКЛАМА (2000 мс / пропуск пакета зафиксирован) <<<");
-                        if (listener != null) listener.onSlowAdvertisingDetected();
-                        return;
-                    }
+            long now = SystemClock.elapsedRealtime();
+            totalPacketsReceived++;
+            if (lastPacketTimestamp != 0) {
+                long delta = now - lastPacketTimestamp;
+                Log.d(TAG, "Пакет выбранной платы | интервал: " + delta + " мс");
+                if (delta >= 70 && delta <= 150) {
+                    isFastAdvertisingDetected = true;
+                    finished = true;
+                    stopScanningInternal();
+                    DetectionListener callback = listener;
+                    if (callback != null) callback.onFastAdvertisingDetected();
+                    return;
                 }
-                lastPacketTimestamp = currentTimestamp;
+                if ((delta >= 1800 && delta <= 2200) || (delta >= 3800 && delta <= 4200)) {
+                    finished = true;
+                    stopScanningInternal();
+                    DetectionListener callback = listener;
+                    if (callback != null) callback.onSlowAdvertisingDetected();
+                    return;
+                }
             }
+            lastPacketTimestamp = now;
+        }
+
+        @Override
+        public void onScanFailed(int errorCode) {
+            finishWithError(errorCode, "Android сообщил об ошибке BLE-сканирования");
         }
     };
-
-//    public ScanCallback getScanCallback() { return scanCallback; }
-
-    public void setMacAddress(String MacAddr) {
-       TARGET_MAC = MacAddr;
-    }
-
 }
-
-
